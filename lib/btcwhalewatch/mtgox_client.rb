@@ -202,8 +202,10 @@ class MtGoxClient
       display_whales
     end
 
-    every(10) do
-      add_message("*** test PING")
+    if ENV['DEBUG_AUDIO']
+      every(10) do
+        add_message("*** test PING")
+      end
     end
   end
 
