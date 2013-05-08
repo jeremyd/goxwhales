@@ -1,0 +1,6 @@
+.bundle
+bundle
+*.swo
+*.swn
+*.swp
+*.log
