@@ -38,11 +38,11 @@ function drawTux2(tx, ty) {
 
 function drawText(text, dx, dy, max) {
   //clear the text..
-  ctx.clearRect(dx,dy-20,max,20);
+  ctx.clearRect(dx,dy-20,max,25);
 
   //draw the text..
-  ctx.fillStyle = "rgb(200,200,200)";
-  ctx.font = "16pt Helvetica";
+  ctx.fillStyle = "rgb(250,250,250)";
+  ctx.font = "20pt Helvetica";
   ctx.fillText(text, dx, dy, max);
 }
 
@@ -91,7 +91,7 @@ function animate() {
       drawTux1((x-50),y);
     }
     else {
-      drawTux2((x-50),y);
+      drawTux1((x-50),y);
     }
 
   }
@@ -164,9 +164,10 @@ ws.onmessage = function(msg){
   //  animations.push(setInterval(animate, 10000));
   //}
 
-  if( !animations[0] ) {
-    animations.push(setInterval(animate, 500));
-  }
+  //if( !animations[0] ) {
+  //  animations.push(setInterval(animate, 500));
+  //}
+  animate();
 
   drawText(world_hash["ticker"], 10, 20, canvas.width);
 }
