@@ -8,6 +8,7 @@ class MtGoxClient
   include Celluloid::Logger
 
   def initialize
+    @nodelist ||= []
     @whale_is = 49
     @whales = []
     Celluloid.logger = ::Logger.new("whale.log")
@@ -97,8 +98,7 @@ class MtGoxClient
     ready_above = calc_ready_whales_above
     ready_below = calc_ready_whales_below
 
-    @nodelist ||= []
-
+    @nodelist = []
     # display low whales with weight being their y axis (fatty)
     @nodelist << {
         "id" => "#{@ready_low_whales.size} whales: #{@ready_low_whales_weight.round.to_s}$",
@@ -118,11 +118,9 @@ class MtGoxClient
         "xx" => "200",
         "yy" => (1 + (@ready_high_whales_weight / 10000)).round.to_s
     }
-    refresh
   end
 
   def refresh()
-    @nodelist ||= []
     Celluloid::Actor[:time_server].refresh('nodelist' => @nodelist)
   end
 
@@ -142,6 +140,7 @@ class MtGoxClient
       @ticker_currency = "USD" #jdata["ticker"]["currency"]
       if (@old_ticker_buy != @ticker_buy) || (@old_ticker_sell != @ticker_sell)
         Celluloid::Actor[:time_server].ticker("ticker buy: #{@ticker_buy} #{@ticker_currency}, ticker sell: #{@ticker_sell} #{@ticker_currency}")
+        refresh
       end
     end
     if jdata["channel_name"] == "depth.BTCUSD"
@@ -153,7 +152,6 @@ class MtGoxClient
         add_message("POSSIBLE WHALE SIGHTED:  #{volume}BTC @ #{price}$, #{kind}")
         @whales << [price, volume, kind]
         display_whales
-        log_whales
       end
       if volume < (0 - @whale_is)
         info("POSSIBLE WHALE DISAPPEARED: #{volume}BTC @ #{price}$, #{kind}")
@@ -162,8 +160,8 @@ class MtGoxClient
           whale[0] == price && whale[1] == volume.abs
         end
         display_whales
-        log_whales
       end
+      refresh
     end
     if jdata["channel_name"] == "trade.BTC"
       currency = jdata["price_currency"]
@@ -180,6 +178,7 @@ class MtGoxClient
         add_message("*** AT MARKET! PRICE DAMAGED!") if market
         info("*** AT MARKET! PRICE DAMAGED!") if market
       end
+      refresh
     end
       
     #debug("#{jdata.inspect}")
