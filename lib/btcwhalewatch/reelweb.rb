@@ -157,4 +157,4 @@ WebServer.supervise_as(:reel, host, port)
 TimeServer.supervise_as(:time_server)
 MtGoxClient.supervise_as(:mtgox)
 
-Celluloid::Actor[:mtgox].set_refresh(5)
+#Celluloid::Actor[:mtgox].set_refresh(5)
