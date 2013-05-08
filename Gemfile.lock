@@ -1,0 +1,92 @@
+GIT
+  remote: git://github.com/celluloid/celluloid-io.git
+  revision: 646c1d701428c1e5c775435e24618f5f544eb9b8
+  specs:
+    celluloid-io (0.14.0.pre)
+      celluloid (>= 0.13.0)
+      nio4r (>= 0.4.0)
+
+GIT
+  remote: git://github.com/celluloid/celluloid.git
+  revision: cdfab73bdb7df67e1347e064260c13e532165a15
+  specs:
+    celluloid (0.14.0.pre)
+      timers (>= 1.0.0)
+
+GIT
+  remote: git://github.com/celluloid/reel.git
+  revision: 5a7f2a560f35a2ee2d16717f57d3d14c7c95a14a
+  specs:
+    reel (0.4.0.pre)
+      celluloid-io (>= 0.8.0)
+      http (>= 0.2.0)
+      http_parser.rb (>= 0.5.3)
+      rack (>= 1.4.0)
+      websocket_parser (>= 0.1.2)
+
+GIT
+  remote: git://github.com/jeremyd/celluloid-websocket-client.git
+  revision: 9aaf0b5b5c911e044d5e56d8692acbf77f95ffa1
+  branch: extra_headers
+  specs:
+    celluloid-websocket-client (0.0.1)
+      celluloid-io
+      websocket-protocol
+
+GIT
+  remote: git://github.com/jeremyd/websocket-protocol-ruby.git
+  revision: f6c77cbf6176744f56fa61d1836e4f7938f4a5de
+  branch: extra_headers
+  specs:
+    websocket-protocol (0.0.0)
+
+PATH
+  remote: .
+  specs:
+    btcwhalewatch (0.0.1)
+      celluloid-io
+      reel
+      websocket-protocol
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    certified (0.1.1)
+    coderay (1.0.9)
+    diff-lcs (1.2.4)
+    http (0.4.0)
+      certified
+      http_parser.rb
+    http_parser.rb (0.5.3)
+    method_source (0.8.1)
+    nio4r (0.4.5)
+    pry (0.9.12.1)
+      coderay (~> 1.0.5)
+      method_source (~> 0.8)
+      slop (~> 3.4)
+    rack (1.5.2)
+    rspec (2.13.0)
+      rspec-core (~> 2.13.0)
+      rspec-expectations (~> 2.13.0)
+      rspec-mocks (~> 2.13.0)
+    rspec-core (2.13.1)
+    rspec-expectations (2.13.0)
+      diff-lcs (>= 1.1.3, < 2.0)
+    rspec-mocks (2.13.1)
+    slop (3.4.4)
+    timers (1.1.0)
+    websocket_parser (0.1.2)
+      http
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  btcwhalewatch!
+  celluloid!
+  celluloid-io!
+  celluloid-websocket-client!
+  pry
+  reel!
+  rspec
+  websocket-protocol!
