@@ -9,11 +9,14 @@ class MtGoxClient
 
   def initialize
     @nodelist ||= []
-    @whale_is = 49
+    @whale_is = 24
     @whales = []
+    @dumptrack = []
+
     Celluloid.logger = ::Logger.new("whale.log")
 
 # FULL DEPTH MORE THAN 5x per hour will get you banned!
+# To load fulldepth delete the depth.json cache file.
 
     @full_depth = nil
     unless File.exists?("depth.json")
@@ -40,7 +43,9 @@ class MtGoxClient
     add_message("discovered #{@whales.size} whales lurking in the full_depth")
     info("discovered #{@whales.size} whales lurking in the full_depth")
 
+# Connect to websocket prior to loading the fulldepth ..
     @client = Celluloid::WebSocket::Client.new("ws://websocket.mtgox.com/mtgox?Channel=trades,ticker,depth", current_actor, :headers => { "Origin" => "ws://websocket.mtgox.com:80" })
+
   end
 
   def on_open
@@ -127,9 +132,8 @@ class MtGoxClient
   end
 
   def refresh()
-    Celluloid::Actor[:time_server].refresh('nodelist' => @nodelist)
+    Celluloid::Actor[:time_server].refresh('nodelist' => @nodelist, 'dumptotal' => dumptotal)
   end
-
 
   def add_message(message)
     Celluloid::Actor[:time_server].add_message(message)
@@ -165,7 +169,12 @@ class MtGoxClient
         info("POSSIBLE WHALE DISAPPEARED: #{volume}BTC @ #{price}$, #{kind}")
         add_message("POSSIBLE WHALE DISAPPEARED: #{volume}BTC @ #{price}$, #{kind}")
         @whales.reject! do |whale|
-          whale[0] == price && whale[1] == volume.abs
+          if whale[0] == price && whale[1] == volume.abs
+            info("removing whale: #{whale[0]} == #{price} && #{whale[1]} == #{volume.abs}")
+            true
+          else
+            false
+          end
         end
         display_whales
         refresh
@@ -181,12 +190,49 @@ class MtGoxClient
       if amount >= @whale_is
         add_message("*** WHALE DUMP DETECTED! #{amount} @ #{price}.  Price going down!") if kind == "ask"
         info("*** WHALE DUMP DETECTED! #{amount} @ #{price}.  Price going down!") if kind == "ask"
+
         add_message("*** WHALE PUMP DETECTED! #{amount} @ #{price}.  Price going UP!") if kind == "bid"
         info("*** WHALE PUMP DETECTED! #{amount} @ #{price}.  Price going UP!") if kind == "bid"
+
+        dumptrackadd(amount, price, kind)
+
         add_message("*** AT MARKET! PRICE DAMAGED!") if market
         info("*** AT MARKET! PRICE DAMAGED!") if market
+
+        saydumptotal = dumptotal
+
+        add_message(saydumptotal)
+        info(saydumptotal)
+
         refresh
       end
+    end
+  end
+
+  def dumptrackadd(amount, price, kind, dumptime=Time.now)
+    # expire > 15minute dumps
+    @dumptrack.reject! { |r| (r[3] + 900) < Time.now }
+    @dumptrack << [amount, price, kind, dumptime]
+  end
+
+# returns total dump human readable!
+  def dumptotal
+    total = 0
+    @dumptrack.each do |t|
+      if t[2] == "bid"
+        total += t[0].to_i
+      elsif t[2] == "ask"
+        total -= t[0].to_i
+      else
+        debug("failed to match #{t[2]} trade type for total.")
+      end
+    end
+    if total > 0
+      return "Last 15 minutes: ***PUMP (bought) #{total.abs} BTC"
+    elsif total < 0
+      return "Last 15 minutes: ***DUMP (sold) #{total.abs} BTC"
+    else
+      return "Last 15 minutes: nothing happening.."
     end
   end
 
@@ -196,8 +242,11 @@ class MtGoxClient
     #end
 
     if ENV['DEBUG_AUDIO']
-      every(resolution) do
-        add_message("*** test PING")
+      every(ENV['DEBUG_AUDIO'].to_i) do
+        add_message("*** test PING simulate whale sell 123!")
+        dumptrackadd("123.0", "123.0", "ask")
+        add_message("*** test PING simulate whale buy 50!")
+        dumptrackadd("50.0", "124.0", "bid")
         refresh
       end
     end

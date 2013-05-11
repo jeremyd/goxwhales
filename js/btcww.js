@@ -48,7 +48,7 @@ function drawTux1(tx, ty) {
 
 function drawText(text, dx, dy, max) {
   //clear the text..
-  ctx.clearRect(dx,dy-20,max,25);
+  ctx.clearRect(dx,dy-20,max,40);
 
   //draw the text..
   ctx.fillStyle = "rgb(250,250,250)";
@@ -128,7 +128,7 @@ function hilight(xcoord,ycoord) {
 }
 
 drawText("ticker -/+ 10 USD:", 10, 100, 200);
-drawText("Please wait.  Scanning for whales.", 10 , 19, canvas.width);
+drawText("Please wait.  Waiting for event..", 10 , 19, canvas.width);
 
 canvas.addEventListener('mousedown', function(e) {
   var mx = e.pageX;
@@ -136,7 +136,6 @@ canvas.addEventListener('mousedown', function(e) {
   console.log(mx, my);
   hilight(mx, my);
 })
-
 
 ws.onmessage = function(msg){
   world_hash = JSON.parse(msg.data);
@@ -181,4 +180,5 @@ ws.onmessage = function(msg){
   animate();
 
   drawText(world_hash["ticker"], 10, 20, canvas.width);
+  drawText(world_hash["last_alert"], 10, 60, canvas.width);
 }
