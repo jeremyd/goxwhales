@@ -217,6 +217,8 @@ class MtGoxClient
 
 # returns total dump human readable!
   def dumptotal
+    # expire > 15minute dumps
+    @dumptrack.reject! { |r| (r[3] + 900) < Time.now }
     total = 0
     @dumptrack.each do |t|
       if t[2] == "bid"
