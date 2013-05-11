@@ -9,7 +9,7 @@ class MtGoxClient
 
   def initialize
     @nodelist ||= []
-    @whale_is = 24
+    @whale_is = 49
     @whales = []
     @dumptrack = []
 
