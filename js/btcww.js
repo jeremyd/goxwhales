@@ -1,7 +1,17 @@
 
 // simpleSockets block ?
-var SocketKlass = "MozWebSocket" in window ? MozWebSocket : WebSocket;
-var ws = new SocketKlass('ws://' + window.location.host + '/timeinfo');
+//var SocketKlass = "MozWebSocket" in window ? MozWebSocket : WebSocket;
+//var ws = new SocketKlass('ws://' + window.location.host + '/timeinfo');
+
+// ReconnectingWebSocket.debugAll = true;
+var ws = new ReconnectingWebSocket('ws://' + window.location.host + '/timeinfo');
+
+//ws.onclose = function(e) {
+//
+//}
+//ws.onerror = function(e) {
+//
+//}
 
 var canvas = document.getElementById('cells');
 var ctx = canvas.getContext("2d");
@@ -21,8 +31,8 @@ var updown = 0;
 var tuximg1 = new Image();
 tuximg1.src = "http://s3.amazonaws.com/goxwhales/static_assets/sprites/melwe_whale.png";
 
-var tuximg2 = new Image();
-tuximg2.src = "http://s3.amazonaws.com/goxwhales/static_assets/sprites/whale-love.png";
+//var tuximg2 = new Image();
+//tuximg2.src = "http://s3.amazonaws.com/goxwhales/static_assets/sprites/whale-love.png";
 
 var mySound = new buzz.sound( "http://s3.amazonaws.com/goxwhales/static_assets/audio/sensrnet", {
     formats: [ "ogg" ] //, "mp3", "acc" ]
@@ -32,9 +42,9 @@ function drawTux1(tx, ty) {
   ctx.drawImage(tuximg1, tx, ty)
 }
 
-function drawTux2(tx, ty) {
-  ctx.drawImage(tuximg2, tx, ty)
-}
+//function drawTux2(tx, ty) {
+//  ctx.drawImage(tuximg2, tx, ty)
+//}
 
 function drawText(text, dx, dy, max) {
   //clear the text..
@@ -117,7 +127,7 @@ function hilight(xcoord,ycoord) {
   }
 }
 
-drawText("+/- 10 USD:", 5, 60, 75);
+drawText("ticker -/+ 10 USD:", 10, 100, 200);
 drawText("Please wait.  Scanning for whales.", 10 , 19, canvas.width);
 
 canvas.addEventListener('mousedown', function(e) {
@@ -126,6 +136,7 @@ canvas.addEventListener('mousedown', function(e) {
   console.log(mx, my);
   hilight(mx, my);
 })
+
 
 ws.onmessage = function(msg){
   world_hash = JSON.parse(msg.data);
