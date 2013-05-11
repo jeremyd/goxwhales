@@ -15,27 +15,32 @@ class MtGoxClient
 
 # FULL DEPTH MORE THAN 5x per hour will get you banned!
 
-#    depth_response = Celluloid::Http.get('http://data.mtgox.com/api/2/BTCUSD/money/depth/full')
-#    full_depth = JSON::parse(depth_response.body)
-#    add_message("got full depth")
-#    #binding.pry
-#
-#    full_depth["data"]["asks"].each do |ask|
-#      if ask["amount"].to_f > @whale_is 
-#        @whales << [ ask["price"], ask["amount"], "ask" ]
-#      end
-#    end
-#
-#    full_depth["data"]["bids"].each do |bid|
-#      if bid["amount"].to_f > @whale_is 
-#        @whales << [ bid["price"], bid["amount"], "bid" ]
-#      end
-#    end
-#
-#    add_message("discovered #{@whales.size} whales lurking in the full_depth")
+    @full_depth = nil
+    unless File.exists?("depth.json")
+      info "curling depth.json"
+      info `curl -L 'http://data.mtgox.com/api/2/BTCUSD/money/depth/full' -o depth.json`
+    else
+      info "using cached depth.json"
+    end
+    @full_depth = JSON::parse(::IO.read("depth.json"))
+
+    @full_depth["data"]["asks"].each do |ask|
+
+      if ask["amount"].to_f > @whale_is 
+        @whales << [ ask["price"], ask["amount"], "ask" ]
+      end
+    end
+
+    @full_depth["data"]["bids"].each do |bid|
+      if bid["amount"].to_f > @whale_is 
+        @whales << [ bid["price"], bid["amount"], "bid" ]
+      end
+    end
+
+    add_message("discovered #{@whales.size} whales lurking in the full_depth")
+    info("discovered #{@whales.size} whales lurking in the full_depth")
 
     @client = Celluloid::WebSocket::Client.new("ws://websocket.mtgox.com/mtgox?Channel=trades,ticker,depth", current_actor, :headers => { "Origin" => "ws://websocket.mtgox.com:80" })
-
   end
 
   def on_open
@@ -93,6 +98,7 @@ class MtGoxClient
   end
 
   def display_whales
+    return false unless @ticker_buy && @ticker_sell
     above = calc_whales_above
     below = calc_whales_below
     ready_above = calc_ready_whales_above
@@ -101,21 +107,21 @@ class MtGoxClient
     @nodelist = []
     # display low whales with weight being their y axis (fatty)
     @nodelist << {
-        "id" => "#{@ready_low_whales.size} whales: #{@ready_low_whales_weight.round.to_s}$",
+        "id" => "#{@ready_low_whales.size} whales buying: #{@ready_low_whales_weight.round.to_s}$",
         "state" => "low",
-        "x" => "120",
-        "y" => "60",
-        "xx" => "200",
+        "x" => "100",
+        "y" => "160",
+        "xx" => "300",
         "yy" => (1 + (@ready_low_whales_weight / 10000)).round.to_s
     }
 
     # display high whales with weight being their y axis (fatty)
     @nodelist << {
-        "id" => "#{@ready_high_whales.size} whales: #{@ready_high_whales_weight.round.to_s}$",
+        "id" => "#{@ready_high_whales.size} whales selling: #{@ready_high_whales_weight.round.to_s}$",
         "state" => "high",
         "x" => "520",
-        "y" => "60",
-        "xx" => "200",
+        "y" => "160",
+        "xx" => "300",
         "yy" => (1 + (@ready_high_whales_weight / 10000)).round.to_s
     }
   end
@@ -139,7 +145,8 @@ class MtGoxClient
       @ticker_sell = jdata["ticker"]["sell"]["value"]
       @ticker_currency = "USD" #jdata["ticker"]["currency"]
       if (@old_ticker_buy != @ticker_buy) || (@old_ticker_sell != @ticker_sell)
-        Celluloid::Actor[:time_server].ticker("ticker buy: #{@ticker_buy} #{@ticker_currency}, ticker sell: #{@ticker_sell} #{@ticker_currency}")
+        display_whales
+        Celluloid::Actor[:time_server].ticker("ticker buy: #{@ticker_buy} #{@ticker_currency}, ticker sell: #{@ticker_sell} #{@ticker_currency}, players: #{@whales.size}")
         refresh
       end
     end
@@ -152,6 +159,7 @@ class MtGoxClient
         add_message("POSSIBLE WHALE SIGHTED:  #{volume}BTC @ #{price}$, #{kind}")
         @whales << [price, volume, kind]
         display_whales
+        refresh
       end
       if volume < (0 - @whale_is)
         info("POSSIBLE WHALE DISAPPEARED: #{volume}BTC @ #{price}$, #{kind}")
@@ -160,8 +168,8 @@ class MtGoxClient
           whale[0] == price && whale[1] == volume.abs
         end
         display_whales
+        refresh
       end
-      refresh
     end
     if jdata["channel_name"] == "trade.BTC"
       currency = jdata["price_currency"]
@@ -177,33 +185,20 @@ class MtGoxClient
         info("*** WHALE PUMP DETECTED! #{amount} @ #{price}.  Price going UP!") if kind == "bid"
         add_message("*** AT MARKET! PRICE DAMAGED!") if market
         info("*** AT MARKET! PRICE DAMAGED!") if market
+        refresh
       end
-      refresh
     end
-      
-    #debug("#{jdata.inspect}")
-    #add_message("amount: #{jdata["trade"]["amount"]}, price: #{jdata["trade"]["price"]} #{jdata["trade"]["price_currency"]}")
-    #if jdata["trade"]["amount"] > 50
-    #  add_message("LARGE TRADE DETECTED!! REDALERT!")
+  end
+
+  def set_debug(resolution)
+    #every(resolution) do
+    #  display_whales
     #end
-  end
-
-  def log_whales
-    #add_message("READY ABOVE: #{@ready_high_whales.size} whales weighing #{@ready_high_whales_weight.round(2)}")
-    #add_message("READY BELOW: #{@ready_low_whales.size} whales weighing #{@ready_low_whales_weight.round(2)}")
-    #add_message("whale grand total: #{@whales.size}")
-    #add_message("      total above: #{@high_whales.size} whales weighing #{@high_whales_weight.round(2)}")
-    #add_message("      total below: #{@low_whales.size} whales weighing #{@low_whales_weight.round(2)}")
-  end
-
-  def set_refresh(resolution)
-    every(resolution) do
-      display_whales
-    end
 
     if ENV['DEBUG_AUDIO']
-      every(10) do
+      every(resolution) do
         add_message("*** test PING")
+        refresh
       end
     end
   end

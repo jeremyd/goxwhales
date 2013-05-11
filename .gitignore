@@ -4,3 +4,4 @@ bundle
 *.swn
 *.swp
 *.log
+depth.json
