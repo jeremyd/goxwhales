@@ -9,7 +9,11 @@ class MtGoxClient
 
   def initialize
     @nodelist ||= []
-    @whale_is = 49
+    if ENV["WHALE_IS"]
+      @whale_is = ENV["WHALE_IS"].to_i
+    else
+      @whale_is = 49
+    end
     @whales = []
     @dumptrack = []
 

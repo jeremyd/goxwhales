@@ -5,3 +5,4 @@ bundle
 *.swp
 *.log
 depth.json
+depth.json.*
