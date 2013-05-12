@@ -27,7 +27,7 @@ class TimeServer
     if @server_startup
       @last_alert_message = "Last Activity:  temporarily unavailable."
     else
-      @last_alert_message = "Last Activity:  #{((Time.now - @last_alerted) / 60).round(2).to_s} minutes ago."
+      @last_alert_message = "Last Activity:  #{((Time.now - @last_alerted) / 60).round.to_s}+ minutes ago."
     end
     @message_list.pop if @message_list.length > 50
     #push the new message onto the list
