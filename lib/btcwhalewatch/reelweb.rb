@@ -106,7 +106,7 @@ class WebServer < Reel::Server
     if request.url == "/"
       return render_index(connection)
     end
-    if request.url == "/ami-agents.js"
+    if request.url == "/btcww.js" || request.url == "/ami-agents.js"
       return render_ami_agents_js(connection)
     end
     if request.url =~ /\/sprites\/(.+)/
@@ -144,7 +144,7 @@ class WebServer < Reel::Server
   end
 
   def render_ami_agents_js(connection)
-    info "200 OK: /ami-agents.js"
+    info "200 OK: /btcww.js"
     connection.respond(:ok, File.read(File.join(Btcwhalewatch::config_dir, "..", "js", "btcww.js")))
   end
 
