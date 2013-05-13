@@ -48,7 +48,7 @@ class MtGoxClient
     info("discovered #{@whales.size} whales lurking in the full_depth")
 
 # Connect to websocket prior to loading the fulldepth ..
-    @client = Celluloid::WebSocket::Client.new("ws://websocket.mtgox.com/mtgox?Channel=trades,ticker,depth", current_actor, :headers => { "Origin" => "ws://websocket.mtgox.com:80" })
+    @client = Celluloid::WebSocket::Client.new("ws://websocket.mtgox.com/mtgox?Channel=trades,ticker,depth&Currency=USD", current_actor, :headers => { "Origin" => "ws://websocket.mtgox.com:80" })
 
   end
 
@@ -136,6 +136,7 @@ class MtGoxClient
   end
 
   def refresh()
+    Celluloid::Actor[:time_server].ticker("ticker buy: #{@ticker_buy} #{@ticker_currency}, ticker sell: #{@ticker_sell} #{@ticker_currency}, players: #{@whales.size}")
     Celluloid::Actor[:time_server].refresh('nodelist' => @nodelist, 'dumptotal' => dumptotal)
   end
 
@@ -154,7 +155,6 @@ class MtGoxClient
       @ticker_currency = "USD" #jdata["ticker"]["currency"]
       if (@old_ticker_buy != @ticker_buy) || (@old_ticker_sell != @ticker_sell)
         display_whales
-        Celluloid::Actor[:time_server].ticker("ticker buy: #{@ticker_buy} #{@ticker_currency}, ticker sell: #{@ticker_sell} #{@ticker_currency}, players: #{@whales.size}")
         refresh
       end
     end
@@ -162,26 +162,37 @@ class MtGoxClient
       price = jdata["depth"]["price"].to_f
       volume = jdata["depth"]["volume"].to_f
       kind = jdata["depth"]["type_str"]
+      currency = jdata["depth"]["currency"]
       if volume > @whale_is 
         info("POSSIBLE WHALE SIGHTED:  #{volume}BTC @ #{price}$, #{kind}")
         add_message("POSSIBLE WHALE SIGHTED:  #{volume}BTC @ #{price}$, #{kind}")
+        suspect_whales = @whales.select {|s| s[0].to_f.abs == price.abs && s[1].to_f.abs == volume.abs}
+        if suspect_whales.size > 0
+          info("SUSPECT WHALE ALREADY IN FULLDEPTH: #{volume}BTC @ #{price}$, #{kind}")
+        end
         @whales << [price, volume, kind]
         display_whales
         refresh
       end
       if volume < (0 - @whale_is)
-        info("POSSIBLE WHALE DISAPPEARED: #{volume}BTC @ #{price}$, #{kind}")
-        add_message("POSSIBLE WHALE DISAPPEARED: #{volume}BTC @ #{price}$, #{kind}")
-        @whales.reject! do |whale|
-          if whale[0] == price && whale[1] == volume.abs
-            info("removing whale: #{whale[0]} == #{price} && #{whale[1]} == #{volume.abs}")
-            true
-          else
-            false
+        after(120) do
+          rejected = false
+# Oh gox, are we getting these out of order? looks like it.
+          @whales.reject! do |whale|
+            if whale[1].to_f.abs == volume.abs && whale[0].to_f.abs == price && rejected == false
+              rejected = true
+              info("WHALE DISAPPEARED, REMOVING: #{whale[1].to_f.abs} == #{volume.abs} && #{whale[0].to_f.abs} == #{price}")
+              true
+            else
+              false
+            end
           end
+          unless rejected
+            info("WARN: UN-TRACKABLE WHALE DISAPPEARED: volume: #{volume}, price: #{price}, kind: #{kind}")
+          end
+          display_whales
+          refresh
         end
-        display_whales
-        refresh
       end
     end
     if jdata["channel_name"] == "trade.BTC"
@@ -191,6 +202,7 @@ class MtGoxClient
       amount = jdata["trade"]["amount"].to_f
       price = jdata["trade"]["price"].to_f
       kind = jdata["trade"]["trade_type"]
+# NEED CURRENCY DETECT HERE? maybe not.
       if amount >= @whale_is
         add_message("*** WHALE DUMP DETECTED! #{amount} @ #{price}.  Price going down!") if kind == "ask"
         info("*** WHALE DUMP DETECTED! #{amount} @ #{price}.  Price going down!") if kind == "ask"

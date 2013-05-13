@@ -6,3 +6,4 @@ bundle
 *.log
 depth.json
 depth.json.*
+*.yaml
