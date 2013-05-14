@@ -3,6 +3,16 @@ require 'json'
 require 'logger'
 require 'time'
 
+class Whale
+  attr_accessor :now, :price, :volume, :kind
+  def initialize(price, volume, kind, now=nil)
+    @price = price
+    @volume = volume
+    @kind = kind
+    @now = now
+  end
+end
+
 class MtGoxClient
   include Celluloid
   include Celluloid::Logger
@@ -16,6 +26,7 @@ class MtGoxClient
     end
     @whales = []
     @dumptrack = []
+    @temp_whales = []
 
     Celluloid.logger = ::Logger.new("whale.log")
 
@@ -32,15 +43,14 @@ class MtGoxClient
     @full_depth = JSON::parse(::IO.read("depth.json"))
 
     @full_depth["data"]["asks"].each do |ask|
-
       if ask["amount"].to_f > @whale_is 
-        @whales << [ ask["price"], ask["amount"], "ask" ]
+        @whales << Whale.new(ask["price"], ask["amount"], "ask")
       end
     end
 
     @full_depth["data"]["bids"].each do |bid|
       if bid["amount"].to_f > @whale_is 
-        @whales << [ bid["price"], bid["amount"], "bid" ]
+        @whales << Whale.new(bid["price"], bid["amount"], "bid")
       end
     end
 
@@ -60,9 +70,9 @@ class MtGoxClient
     @high_whales = []
     @high_whales_weight = 0.0
     @whales.each do |whale|
-      if whale[0].to_f > @ticker_buy.to_f
+      if whale.price.to_f > @ticker_buy.to_f
         @high_whales << whale
-        @high_whales_weight += (whale[0].to_f * whale[1].to_f)
+        @high_whales_weight += (whale.price.to_f * whale.volume.to_f)
       end
     end
     @high_whales.size
@@ -72,9 +82,9 @@ class MtGoxClient
     @low_whales = []
     @low_whales_weight = 0.0
     @whales.each do |whale|
-      if whale[0].to_f < @ticker_buy.to_f
+      if whale.price.to_f < @ticker_buy.to_f
         @low_whales << whale
-        @low_whales_weight += (whale[0].to_f * whale[1].to_f)
+        @low_whales_weight += (whale.price.to_f * whale.volume.to_f)
       end
     end
     @low_whales.size
@@ -85,9 +95,9 @@ class MtGoxClient
     @ready_low_whales = []
     @ready_low_whales_weight = 0.0
     @low_whales.each do |whale|
-      if whale[0].to_f > (@ticker_buy.to_f - 10)
+      if whale.price.to_f > (@ticker_buy.to_f - 10)
         @ready_low_whales << whale
-        @ready_low_whales_weight += (whale[0].to_f * whale[1].to_f)
+        @ready_low_whales_weight += (whale.price.to_f * whale.volume.to_f)
       end
     end
     @ready_low_whales.size
@@ -98,9 +108,9 @@ class MtGoxClient
     @ready_high_whales = []
     @ready_high_whales_weight = 0.0
     @high_whales.each do |whale|
-      if whale[0].to_f < (@ticker_buy.to_f + 10)
+      if whale.price.to_f < (@ticker_buy.to_f + 10)
         @ready_high_whales << whale
-        @ready_high_whales_weight += (whale[0].to_f * whale[1].to_f)
+        @ready_high_whales_weight += (whale.price.to_f * whale.volume.to_f)
       end
     end
     @ready_high_whales.size
@@ -144,6 +154,46 @@ class MtGoxClient
     Celluloid::Actor[:time_server].add_message(message)
   end
 
+  def reflow_whales
+    # sort first by timestamp, top is oldest, then by kind, buys on top of sells.
+    @temp_whales.sort_by! { |a| [a.now, a.kind] }
+    # grab the oldest whale off the top
+    whaletransit = @temp_whales.shift
+    return unless whaletransit
+    @this_now = whaletransit.now
+    if @last_now && @this_now <= @last_now 
+      info("WARN: OUT OF ORDER DETECTED")
+    end
+    @last_now = @this_now
+    if whaletransit.volume.to_f > 0
+      @whales << whaletransit
+      info "SIGHTED: #{whaletransit.inspect}"
+      display_whales
+      refresh
+    elsif whaletransit.volume.to_f < 0
+      after(60) do
+        rejected = false
+        @whales.reject! do |r| 
+          if( r.volume.to_f.abs == whaletransit.volume.to_f.abs &&
+              r.price.to_f == whaletransit.price.to_f &&
+              r.kind == whaletransit.kind && rejected == false )
+            rejected = true
+            true
+          else
+            false
+          end
+        end
+        if rejected == false
+          info("WARN: whale mia but nothing rejected for #{whaletransit.inspect}")
+        else
+          info("GONE: #{whaletransit.inspect}")
+          display_whales
+          refresh
+        end
+      end
+    end
+  end
+
   def on_message(data)
     jdata = JSON::parse(data)
     # Track the current ticker price for comparison
@@ -159,41 +209,18 @@ class MtGoxClient
       end
     end
     if jdata["channel_name"] == "depth.BTCUSD"
+      now = jdata['depth']['now'].to_i
       price = jdata["depth"]["price"].to_f
       volume = jdata["depth"]["volume"].to_f
       kind = jdata["depth"]["type_str"]
       currency = jdata["depth"]["currency"]
       if volume > @whale_is 
-        info("POSSIBLE WHALE SIGHTED:  #{volume}BTC @ #{price}$, #{kind}")
-        add_message("POSSIBLE WHALE SIGHTED:  #{volume}BTC @ #{price}$, #{kind}")
-        suspect_whales = @whales.select {|s| s[0].to_f.abs == price.abs && s[1].to_f.abs == volume.abs}
-        if suspect_whales.size > 0
-          info("SUSPECT WHALE ALREADY IN FULLDEPTH: #{volume}BTC @ #{price}$, #{kind}")
-        end
-        @whales << [price, volume, kind]
-        display_whales
-        refresh
+        @temp_whales << Whale.new(price, volume, kind, now)
       end
       if volume < (0 - @whale_is)
-        after(120) do
-          rejected = false
-# Oh gox, are we getting these out of order? looks like it.
-          @whales.reject! do |whale|
-            if whale[1].to_f.abs == volume.abs && whale[0].to_f.abs == price && rejected == false
-              rejected = true
-              info("WHALE DISAPPEARED, REMOVING: #{whale[1].to_f.abs} == #{volume.abs} && #{whale[0].to_f.abs} == #{price}")
-              true
-            else
-              false
-            end
-          end
-          unless rejected
-            info("WARN: UN-TRACKABLE WHALE DISAPPEARED: volume: #{volume}, price: #{price}, kind: #{kind}")
-          end
-          display_whales
-          refresh
-        end
+        @temp_whales << Whale.new(price, volume, kind, now)
       end
+      after(30) { reflow_whales }
     end
     if jdata["channel_name"] == "trade.BTC"
       currency = jdata["price_currency"]
