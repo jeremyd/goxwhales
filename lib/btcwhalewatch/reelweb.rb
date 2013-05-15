@@ -24,11 +24,11 @@ class TimeServer
          @alert_now = true
       end
     end
-    if @server_startup
-      @last_alert_message = "Last Activity:  temporarily unavailable."
-    else
-      @last_alert_message = "Last Activity:  #{((Time.now - @last_alerted) / 60).round.to_s}+ minutes ago."
-    end
+    #if @server_startup
+    #  @last_alert_message = "Last Activity:  temporarily unavailable."
+    #else
+    #  @last_alert_message = "Last Activity:  #{((Time.now - @last_alerted) / 60).round.to_s}+ minutes ago."
+    #end
     @message_list.pop if @message_list.length > 50
     #push the new message onto the list
     compose_message = "#{Time.now.to_s}: #{message}"
@@ -48,7 +48,7 @@ class TimeServer
     gen["sightings"] = @message_list.select { |m| !m.include?("***") }
     gen["nodes"] = nodelist
     gen["alert"] = @alert_now.to_s
-    gen["last_alert"] = "#{@last_alert_message} #{dumptotal}"
+    gen["last_alert"] = dumptotal
     @alert_now = false
     gen["ticker"] = @ticker_display
     return gen.to_json

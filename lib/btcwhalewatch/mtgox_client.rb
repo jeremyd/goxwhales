@@ -13,9 +13,37 @@ class Whale
   end
 end
 
+class FakeWall
+  attr_accessor :seen, :count, :whale
+  def initialize(whale)
+    @whale = whale
+    @seen = Time.now
+    @count = 1
+  end
+end
+
 class MtGoxClient
   include Celluloid
   include Celluloid::Logger
+
+  def fakewall_sighted(whale)
+    find_it = nil
+    @fake_walls.each_with_index do |d,i|
+      if d.whale.volume == whale.volume && d.whale.price == whale.price && d.whale.kind == whale.kind
+        find_it = i
+        break
+      end
+    end
+    if find_it == nil
+      a = FakeWall.new(whale)
+      @fake_walls << a
+      return a
+    else
+      @fake_walls[find_it].seen = Time.now
+      @fake_walls[find_it].count += 1
+      return @fake_walls[find_it]
+    end
+  end
 
   def initialize
     @nodelist ||= []
@@ -27,6 +55,7 @@ class MtGoxClient
     @whales = []
     @dumptrack = []
     @temp_whales = []
+    @fake_walls = []
 
     Celluloid.logger = ::Logger.new("whale.log")
 
@@ -116,37 +145,101 @@ class MtGoxClient
     @ready_high_whales.size
   end
 
+  def expire_fakes
+    # expire walls that the price has consumed
+    @fake_walls.reject! do |fake|
+      fake.whale.kind == "ask" && fake.whale.price.to_f <= @ticker_buy.to_f
+    end
+    @fake_walls.reject! do |fake|
+      fake.whale.kind == "bid" && fake.whale.price.to_f >= @ticker_sell.to_f
+    end
+    @fake_walls.reject! do |fake|
+# expire 50,000 seconds
+      (Time.now - fake.seen) > 50000
+    end
+  end
+
+  def calc_fake_walls_above_and_below
+    @fakes_above = []
+    @fakes_below = []
+    expire_fakes
+    @fake_walls.each do |fake|
+      if fake.whale.kind == "ask" && fake.count >= 2 && (fake.whale.price.to_f < (@ticker_sell.to_f + 30))
+        @fakes_above << fake
+      elsif fake.whale.kind == "bid" && fake.count >= 2 && (fake.whale.price.to_f > (@ticker_buy.to_f - 30)) 
+        @fakes_below << fake
+      end
+    end
+    @fakes_above.sort! { |a,b| a.whale.price <=> b.whale.price }
+    @fakes_below.sort! { |a,b| a.whale.price <=> b.whale.price }
+  end
+
   def display_whales
     return false unless @ticker_buy && @ticker_sell
     above = calc_whales_above
     below = calc_whales_below
     ready_above = calc_ready_whales_above
     ready_below = calc_ready_whales_below
+    calc_fake_walls_above_and_below
 
     @nodelist = []
     # display low whales with weight being their y axis (fatty)
-    @nodelist << {
-        "id" => "#{@ready_low_whales.size} whales buying: #{@ready_low_whales_weight.round.to_s}$",
-        "state" => "low",
-        "x" => "100",
-        "y" => "160",
-        "xx" => "300",
-        "yy" => (1 + (@ready_low_whales_weight / 10000)).round.to_s
-    }
+    #@nodelist << {
+    #    "id" => "#{@ready_low_whales.size} whales buying: #{@ready_low_whales_weight.round.to_s}$",
+    #    "state" => "low",
+    #    "x" => "100",
+    #    "y" => "160",
+    #    "xx" => "300",
+    #    "yy" => (1 + (@ready_low_whales_weight / 10000)).round.to_s
+    #}
+#
+#    # display high whales with weight being their y axis (fatty)
+#    @nodelist << {
+#        "id" => "#{@ready_high_whales.size} whales selling: #{@ready_high_whales_weight.round.to_s}$",
+#        "state" => "high",
+#        "x" => "520",
+#        "y" => "160",
+#        "xx" => "300",
+#        "yy" => (1 + (@ready_high_whales_weight / 10000)).round.to_s
+#    }
 
-    # display high whales with weight being their y axis (fatty)
-    @nodelist << {
-        "id" => "#{@ready_high_whales.size} whales selling: #{@ready_high_whales_weight.round.to_s}$",
-        "state" => "high",
-        "x" => "520",
-        "y" => "160",
-        "xx" => "300",
-        "yy" => (1 + (@ready_high_whales_weight / 10000)).round.to_s
-    }
+    # display low whales with weight being their y axis (fatty)
+
+    x = 100
+    y = 160
+    yy = 20
+    @fakes_below.each do |fb|
+      xx = fb.whale.volume.abs.to_f.round
+      last_seen = (Time.now - fb.seen).round
+      @nodelist << {
+          "id" => " #{fb.whale.price} USD. Volume #{fb.whale.volume}.  Faked wall #{fb.count}x times.  Last fake: #{last_seen}s ago.",
+          "state" => "low",
+          "x" => x.to_s,
+          "y" => y.to_s,
+          "xx" => xx.to_s,
+          "yy" => yy.to_s
+      }
+      y += (yy + 20)
+    end
+
+    @fakes_above.each do |fb|
+      xx = fb.whale.volume.abs.to_f.round
+      last_seen = (Time.now - fb.seen).round
+      @nodelist << {
+          "id" => " #{fb.whale.price} USD. Volume #{fb.whale.volume}.  Faked wall #{fb.count}x times.  Last fake: #{last_seen}s ago.",
+          "state" => "high",
+          "x" => x.to_s,
+          "y" => y.to_s,
+          "xx" => xx.to_s,
+          "yy" => yy.to_s
+      }
+      y += (yy + 20)
+    end
+
   end
 
   def refresh()
-    Celluloid::Actor[:time_server].ticker("ticker buy: #{@ticker_buy} #{@ticker_currency}, ticker sell: #{@ticker_sell} #{@ticker_currency}, players: #{@whales.size}")
+    Celluloid::Actor[:time_server].ticker("Ticker buy: #{@ticker_buy} #{@ticker_currency},  Ticker sell: #{@ticker_sell} #{@ticker_currency}")
     Celluloid::Actor[:time_server].refresh('nodelist' => @nodelist, 'dumptotal' => dumptotal)
   end
 
@@ -171,7 +264,7 @@ class MtGoxClient
       display_whales
       refresh
     elsif whaletransit.volume.to_f < 0
-      after(60) do
+      #after(60) do
         rejected = false
         @whales.reject! do |r| 
           if( r.volume.to_f.abs == whaletransit.volume.to_f.abs &&
@@ -187,10 +280,12 @@ class MtGoxClient
           info("WARN: whale mia but nothing rejected for #{whaletransit.inspect}")
         else
           info("GONE: #{whaletransit.inspect}")
+          showit = fakewall_sighted(whaletransit)
+          info("POSSIBLE FAKE WALL (#{showit.count} seen) #{showit.whale.inspect}")
           display_whales
           refresh
         end
-      end
+      #end
     end
   end
 
@@ -272,10 +367,12 @@ class MtGoxClient
         debug("failed to match #{t[2]} trade type for total.")
       end
     end
+    # get 5 minute
+    alert_msg = "Sum of whale action; In the last 15 minutes:"
     if total > 0
-      return "Last 15 minutes: ***PUMP (bought) #{total.abs} BTC"
+      return alert_msg + " + #{total.abs} BTC (bought)"
     elsif total < 0
-      return "Last 15 minutes: ***DUMP (sold) #{total.abs} BTC"
+      return alert_msg + "- #{total.abs} BTC (sold)"
     else
       return "Last 15 minutes: nothing happening.."
     end

@@ -56,6 +56,16 @@ function drawText(text, dx, dy, max) {
   ctx.fillText(text, dx, dy, max);
 }
 
+function drawTextOver(text, dx, dy, max) {
+  //clear the text..
+  //ctx.clearRect(dx,dy-20,max,40);
+
+  //draw the text..
+  ctx.fillStyle = "rgb(250,250,250)";
+  ctx.font = "20pt Helvetica";
+  ctx.fillText(text, dx, dy, max);
+}
+
 function clearText(text, dx, dy) {
   ctx.fillStyle = "rgb(200,200,200)";
   ctx.font = "12pt Helvetica";
@@ -75,15 +85,7 @@ function animate() {
   //ctx.fillStyle = "rgb(0,100,0)";
   ctx.strokeStyle = "#0f0";
   for(var i = 0; i < nodes.length; i++) {
-    if(selected[i] == true) {
-      ctx.fillStyle = "rgb(180,0,200)";
-    }
-    else if(nodes[i]["state"] == "low") {
-      ctx.fillStyle = "rgb(0," + counter + ",0)";
-    }
-    else {
-      ctx.fillStyle = "rgb(200,0,0)";
-    }
+    
     x = nodes[i]["x"];
     y = nodes[i]["y"];
     xx = nodes[i]["xx"];
@@ -91,18 +93,25 @@ function animate() {
     //console.log(x, y, xx, yy);
 
     // clear the maximum height rect
-    ctx.clearRect(x,y,xx,1080);
+    //ctx.clearRect(x,y,xx,1080);
 
-    // draw the rect
-    ctx.fillRect(x,y,xx,yy);
+    drawText(nodes[i]["id"], x, y, 800);
 
-    drawText(nodes[i]["id"], x, y, xx);
-    if((i % 2) == 0) {
-      drawTux1((x-50),y);
+    if(nodes[i]["state"] == "low") {
+      ctx.fillStyle = "rgb(0," + counter + ",0)";
     }
     else {
-      drawTux1((x-50),y);
+      ctx.fillStyle = "rgb(200,0,0)";
     }
+    ctx.clearRect(x,y,xx,yy);
+    ctx.fillRect(x, y, xx, yy); 
+
+    //if((i % 2) == 0) {
+    //  drawTux1((x-50),y);
+    //}
+    //else {
+    //  drawTux1((x-50),y);
+    //}
 
   }
 }
@@ -127,8 +136,8 @@ function hilight(xcoord,ycoord) {
   }
 }
 
-drawText("ticker -/+ 10 USD:", 10, 100, 200);
-drawText("Please wait.  Waiting for event..", 10 , 19, canvas.width);
+drawText("Please wait.  Waiting for event (ticker change, whale, or fakewall)..", 10 , 19, canvas.width);
+drawText("Fake walls -/+ 30 USD of ticker:", 10, 120, 200);
 
 canvas.addEventListener('mousedown', function(e) {
   var mx = e.pageX;
