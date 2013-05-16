@@ -109,9 +109,6 @@ class WebServer < Reel::Server
     if request.url == "/btcww.js" || request.url == "/ami-agents.js"
       return render_ami_agents_js(connection)
     end
-    if request.url =~ /\/sprites\/(.+)/
-      return render_sprite(connection, $1)
-    end
     if request.url =~ /\/(css\/.+)/ || request.url =~ /\/(js\/.+)/ || request.url =~ /\/(img\/.+)/ || request.url =~ /\/(audio\/.+)/
       return render_static_asset(connection, $1)
     end
@@ -139,10 +136,6 @@ class WebServer < Reel::Server
     end
   end
 
-  def render_sprite(connection, spritename)
-    connection.respond(:ok, File.read(File.join(Btcwhalewatch::config_dir, "..", "sprites", spritename)))
-  end
-
   def render_ami_agents_js(connection)
     info "200 OK: /btcww.js"
     connection.respond(:ok, File.read(File.join(Btcwhalewatch::config_dir, "..", "js", "btcww.js")))
@@ -150,7 +143,7 @@ class WebServer < Reel::Server
 
   def render_index(connection)
     info "200 OK: /"
-    connection.respond(:ok, File.read(File.join(Btcwhalewatch::config_dir, "..", "static_assets", "html", "index.html")))
+    connection.respond(:ok, File.read(File.join(Btcwhalewatch::config_dir, "..", "static_assets", "index.html")))
   end
 end
 
