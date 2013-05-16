@@ -326,16 +326,16 @@ class MtGoxClient
       kind = jdata["trade"]["trade_type"]
 # NEED CURRENCY DETECT HERE? maybe not.
       if amount >= @whale_is
-        add_message("*** WHALE DUMP DETECTED! #{amount} @ #{price}.  Price going down!") if kind == "ask"
-        info("*** WHALE DUMP DETECTED! #{amount} @ #{price}.  Price going down!") if kind == "ask"
+        add_message("WHALE DUMP DETECTED! #{amount} @ #{price}.  Price going down!") if kind == "ask"
+        info("WHALE DUMP DETECTED! #{amount} @ #{price}.  Price going down!") if kind == "ask"
 
-        add_message("*** WHALE PUMP DETECTED! #{amount} @ #{price}.  Price going UP!") if kind == "bid"
-        info("*** WHALE PUMP DETECTED! #{amount} @ #{price}.  Price going UP!") if kind == "bid"
+        add_message("WHALE PUMP DETECTED! #{amount} @ #{price}.  Price going UP!") if kind == "bid"
+        info("WHALE PUMP DETECTED! #{amount} @ #{price}.  Price going UP!") if kind == "bid"
 
         dumptrackadd(amount, price, kind)
 
-        add_message("*** AT MARKET! PRICE DAMAGED!") if market
-        info("*** AT MARKET! PRICE DAMAGED!") if market
+        add_message("AT MARKET! PRICE DAMAGED!") if market
+        info("AT MARKET! PRICE DAMAGED!") if market
 
         saydumptotal = dumptotal
 
@@ -369,6 +369,7 @@ class MtGoxClient
     end
     # get 5 minute
     alert_msg = "Sum of whale action; In the last 15 minutes:"
+    add_message("*** 15 minute whale action is over the 375 btc threshold! #{total} BTC (alert sleep timer set 1000s)") if total.abs >= 375
     if total > 0
       return alert_msg + " + #{total.abs} BTC (bought)"
     elsif total < 0

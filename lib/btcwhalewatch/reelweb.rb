@@ -10,7 +10,7 @@ class TimeServer
   def initialize
     @message_list = []
     @alert_now = false
-    @last_alerted = Time.now - 21
+    @last_alerted = Time.now - 5000
     @server_startup = true
     @message_list = []
     @ticker_display = ""
@@ -18,10 +18,12 @@ class TimeServer
 
   def add_message(message)
     if message.include?("***")
-      if @last_alerted + 20 < Time.now
+      if @last_alerted + 1000 < Time.now
          @server_startup = false
          @last_alerted = Time.now
          @alert_now = true
+      else
+        return true
       end
     end
     #if @server_startup
