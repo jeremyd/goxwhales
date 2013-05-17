@@ -354,7 +354,7 @@ class MtGoxClient
 
         saydumptotal = dumptotal
 
-        add_message(saydumptotal)
+        #add_message(saydumptotal)
         info(saydumptotal)
 
         refresh

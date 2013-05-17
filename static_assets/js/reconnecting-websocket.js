@@ -81,7 +81,7 @@ function ReconnectingWebSocket(url, protocols) {
     };
 
     function connect(reconnectAttempt) {
-        console.log(url, protocols);
+        //console.log(url, protocols);
         ws = new WebSocket(url, protocols);
         
         self.onconnecting();

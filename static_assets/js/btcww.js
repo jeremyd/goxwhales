@@ -4,6 +4,8 @@
 //var ws = new SocketKlass('ws://' + window.location.host + '/timeinfo');
 
 // ReconnectingWebSocket.debugAll = true;
+//ReconnectingWebSocket.timeoutInterval = 5000
+//ReconnectingWebSocket.reconnectInterval = 10000
 var ws = new ReconnectingWebSocket('ws://' + window.location.host + '/timeinfo');
 
 //ws.onclose = function(e) {
