@@ -56,6 +56,7 @@ class MtGoxClient
     @dumptrack = []
     @temp_whales = []
     @fake_walls = []
+    @players = 0
 
     Celluloid.logger = ::Logger.new("whale.log")
 
@@ -89,6 +90,20 @@ class MtGoxClient
 # Connect to websocket prior to loading the fulldepth ..
     @client = Celluloid::WebSocket::Client.new("ws://websocket.mtgox.com/mtgox?Channel=trades,ticker,depth&Currency=USD", current_actor, :headers => { "Origin" => "ws://websocket.mtgox.com:80" })
 
+  end
+
+  # polling for haproxy connected users
+  def stats_enable(polling_interval)
+    after(5) { get_stats }
+    every(polling_interval) do
+      get_stats
+    end
+  end
+
+  def get_stats
+    current_conns = `echo -e "show info" |socat stdio unix-connect:/var/run/haproxy.sock |grep CurrConns|cut -f2 -d:`.chomp
+    @players = current_conns.to_i if current_conns
+    info("current connected users from haproxy stats: #{current_conns}")
   end
 
   def on_open
@@ -239,7 +254,7 @@ class MtGoxClient
   end
 
   def refresh()
-    Celluloid::Actor[:time_server].ticker("Ticker buy: #{@ticker_buy} #{@ticker_currency},  Ticker sell: #{@ticker_sell} #{@ticker_currency}")
+    Celluloid::Actor[:time_server].ticker("Ticker buy: #{@ticker_buy} #{@ticker_currency},  Ticker sell: #{@ticker_sell} #{@ticker_currency},  Players: #{@players}")
     Celluloid::Actor[:time_server].refresh('nodelist' => @nodelist, 'dumptotal' => dumptotal)
   end
 
@@ -398,4 +413,5 @@ class MtGoxClient
   def on_close(code, reason)
     debug("websocket connection closed: #{code.inspect}, #{reason.inspect}")
   end
+
 end
