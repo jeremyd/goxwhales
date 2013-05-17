@@ -94,7 +94,7 @@ class MtGoxClient
 
   # polling for haproxy connected users
   def stats_enable(polling_interval)
-    after(5) { get_stats }
+    after(60) { get_stats }
     every(polling_interval) do
       get_stats
     end
