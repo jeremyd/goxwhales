@@ -170,7 +170,7 @@ class MtGoxClient
     end
     @fake_walls.reject! do |fake|
 # expire 50,000 seconds
-      (Time.now - fake.seen) > 50000
+      (Time.now - fake.seen) > 15000
     end
   end
 
