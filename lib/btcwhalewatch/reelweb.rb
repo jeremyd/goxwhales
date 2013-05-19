@@ -166,3 +166,5 @@ MtGoxClient.supervise_as(:mtgox)
 
 Celluloid::Actor[:mtgox].set_debug(5) if ENV['DEBUG_AUDIO']
 Celluloid::Actor[:mtgox].stats_enable(900)
+Celluloid::Actor[:mtgox].set_refresh(5)
+

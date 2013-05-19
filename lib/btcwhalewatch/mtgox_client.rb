@@ -414,4 +414,10 @@ class MtGoxClient
     debug("websocket connection closed: #{code.inspect}, #{reason.inspect}")
   end
 
+  def set_refresh(interval)
+    every(interval) do
+      refresh
+    end
+  end
+
 end
