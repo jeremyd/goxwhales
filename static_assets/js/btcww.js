@@ -33,8 +33,8 @@ var updown = 0;
 var tuximg1 = new Image();
 tuximg1.src = "http://s3.amazonaws.com/goxwhales/static_assets/sprites/melwe_whale.png";
 
-//var tuximg2 = new Image();
-//tuximg2.src = "http://s3.amazonaws.com/goxwhales/static_assets/sprites/whale-love.png";
+var tuximg2 = new Image();
+tuximg2.src = "http://s3.amazonaws.com/goxwhales/static_assets/sprites/whale-love.png";
 
 var mySound = new buzz.sound( "http://s3.amazonaws.com/goxwhales/static_assets/audio/sensrnet", {
     formats: [ "ogg" ] //, "mp3", "acc" ]
@@ -44,9 +44,9 @@ function drawTux1(tx, ty) {
   ctx.drawImage(tuximg1, tx, ty)
 }
 
-//function drawTux2(tx, ty) {
-//  ctx.drawImage(tuximg2, tx, ty)
-//}
+function drawTux2(tx, ty) {
+  ctx.drawImage(tuximg2, tx, ty)
+}
 
 function drawText(text, dx, dy, max) {
   //clear the text..
@@ -108,12 +108,9 @@ function animate() {
     ctx.clearRect(x,y,xx,yy);
     ctx.fillRect(x, y, xx, yy); 
 
-    //if((i % 2) == 0) {
-    //  drawTux1((x-50),y);
-    //}
-    //else {
-    //  drawTux1((x-50),y);
-    //}
+    if(i == 0 || i == 1) {
+      drawTux1((x-50),y);
+    }
 
   }
 }
@@ -139,7 +136,6 @@ function hilight(xcoord,ycoord) {
 }
 
 drawText("Please wait.  Waiting for event (ticker change, whale, or fakewall)..", 10 , 19, canvas.width);
-drawText("Fake walls -/+ 30 USD of ticker:", 10, 120, 200);
 
 canvas.addEventListener('mousedown', function(e) {
   var mx = e.pageX;

@@ -14,11 +14,12 @@ class Whale
 end
 
 class FakeWall
-  attr_accessor :seen, :count, :whale
-  def initialize(whale)
+  attr_accessor :seen, :count, :whale, :status
+  def initialize(whale, status)
     @whale = whale
     @seen = Time.now
     @count = 1
+    @status = status
   end
 end
 
@@ -26,7 +27,7 @@ class MtGoxClient
   include Celluloid
   include Celluloid::Logger
 
-  def fakewall_sighted(whale)
+  def fakewall_sighted(whale, status)
     find_it = nil
     @fake_walls.each_with_index do |d,i|
       if d.whale.volume == whale.volume && d.whale.price == whale.price && d.whale.kind == whale.kind
@@ -35,12 +36,13 @@ class MtGoxClient
       end
     end
     if find_it == nil
-      a = FakeWall.new(whale)
+      a = FakeWall.new(whale, status)
       @fake_walls << a
       return a
     else
       @fake_walls[find_it].seen = Time.now
       @fake_walls[find_it].count += 1
+      @fake_walls[find_it].status = status
       return @fake_walls[find_it]
     end
   end
@@ -74,18 +76,18 @@ class MtGoxClient
 
     @full_depth["data"]["asks"].each do |ask|
       if ask["amount"].to_f > @whale_is 
-        @whales << Whale.new(ask["price"], ask["amount"], "ask")
+        fakewall_sighted(Whale.new(ask["price"], ask["amount"], "ask"), "on")
       end
     end
 
     @full_depth["data"]["bids"].each do |bid|
       if bid["amount"].to_f > @whale_is 
-        @whales << Whale.new(bid["price"], bid["amount"], "bid")
+        fakewall_sighted(Whale.new(bid["price"], bid["amount"], "bid"), "on")
       end
     end
 
-    add_message("discovered #{@whales.size} whales lurking in the full_depth")
-    info("discovered #{@whales.size} whales lurking in the full_depth")
+    add_message("discovered #{@fake_walls.size} whales lurking in the full_depth")
+    info("discovered #{@fake_walls.size} whales lurking in the full_depth")
 
 # Connect to websocket prior to loading the fulldepth ..
     @client = Celluloid::WebSocket::Client.new("ws://websocket.mtgox.com/mtgox?Channel=trades,ticker,depth&Currency=USD", current_actor, :headers => { "Origin" => "ws://websocket.mtgox.com:80" })
@@ -168,9 +170,9 @@ class MtGoxClient
     @fake_walls.reject! do |fake|
       fake.whale.kind == "bid" && fake.whale.price.to_f >= @ticker_sell.to_f
     end
+    # walls that have been reduced by the incremental volume changes will drop off once less than @whale_is
     @fake_walls.reject! do |fake|
-# expire 50,000 seconds
-      (Time.now - fake.seen) > 15000
+      fake.whale.volume.abs <= @whale_is
     end
   end
 
@@ -179,9 +181,9 @@ class MtGoxClient
     @fakes_below = []
     expire_fakes
     @fake_walls.each do |fake|
-      if fake.whale.kind == "ask" && fake.count >= 2 && (fake.whale.price.to_f < (@ticker_sell.to_f + 30))
+      if fake.whale.kind == "ask" && fake.count >= 2 && (fake.whale.price.to_f < (@ticker_sell.to_f + 30)) && ((Time.now - fake.seen) < 15000)
         @fakes_above << fake
-      elsif fake.whale.kind == "bid" && fake.count >= 2 && (fake.whale.price.to_f > (@ticker_buy.to_f - 30)) 
+      elsif fake.whale.kind == "bid" && fake.count >= 2 && (fake.whale.price.to_f > (@ticker_buy.to_f - 30)) && ((Time.now - fake.seen) < 15000) 
         @fakes_below << fake
       end
     end
@@ -191,6 +193,9 @@ class MtGoxClient
 
   def display_whales
     return false unless @ticker_buy && @ticker_sell
+    # The whales are essentially 'walls' that we've detected 1 or more times.
+    getwhalewalls = @fake_walls.select { |s| s.whale && s.count >= 1 && s.status = "on" }
+    @whales = getwhalewalls.collect { |s| s.whale  }
     above = calc_whales_above
     below = calc_whales_below
     ready_above = calc_ready_whales_above
@@ -199,29 +204,33 @@ class MtGoxClient
 
     @nodelist = []
     # display low whales with weight being their y axis (fatty)
-    #@nodelist << {
-    #    "id" => "#{@ready_low_whales.size} whales buying: #{@ready_low_whales_weight.round.to_s}$",
-    #    "state" => "low",
-    #    "x" => "100",
-    #    "y" => "160",
-    #    "xx" => "300",
-    #    "yy" => (1 + (@ready_low_whales_weight / 10000)).round.to_s
-    #}
+    y = 160
+    @nodelist << {
+        "id" => "#{@ready_low_whales.size} whales buying: #{@ready_low_whales_weight.round.to_s}$",
+        "state" => "low",
+        "x" => "100",
+        "y" => y.to_s,
+        "xx" => "300",
+        "yy" => (1 + (@ready_low_whales_weight / 10000)).round.to_s
+    }
+    largest_y = y + (1 + (@ready_low_whales_weight / 10000)).round
 #
 #    # display high whales with weight being their y axis (fatty)
-#    @nodelist << {
-#        "id" => "#{@ready_high_whales.size} whales selling: #{@ready_high_whales_weight.round.to_s}$",
-#        "state" => "high",
-#        "x" => "520",
-#        "y" => "160",
-#        "xx" => "300",
-#        "yy" => (1 + (@ready_high_whales_weight / 10000)).round.to_s
-#    }
+    @nodelist << {
+        "id" => "#{@ready_high_whales.size} whales selling: #{@ready_high_whales_weight.round.to_s}$",
+        "state" => "high",
+        "x" => "520",
+        "y" => y.to_s,
+        "xx" => "300",
+        "yy" => (1 + (@ready_high_whales_weight / 10000)).round.to_s
+    }
+
+    largest_y = y + (1 + (@ready_low_whales_weight / 10000)).round if largest_y < (1 + (@ready_low_whales_weight / 10000)).round
 
     # display low whales with weight being their y axis (fatty)
 
     x = 100
-    y = 160
+    y = largest_y + 200
     yy = 20
     @fakes_below.each do |fb|
       xx = fb.whale.volume.abs.to_f.round
@@ -254,7 +263,7 @@ class MtGoxClient
   end
 
   def refresh()
-    Celluloid::Actor[:time_server].ticker("Ticker buy: #{@ticker_buy} #{@ticker_currency},  Ticker sell: #{@ticker_sell} #{@ticker_currency},  Players: #{@players}")
+    Celluloid::Actor[:time_server].ticker("Ticker buy: #{@ticker_buy} #{@ticker_currency},  Ticker sell: #{@ticker_sell} #{@ticker_currency}, Whales >= #{@whale_is} BTC")
     Celluloid::Actor[:time_server].refresh('nodelist' => @nodelist, 'dumptotal' => dumptotal)
   end
 
@@ -274,33 +283,47 @@ class MtGoxClient
     end
     @last_now = @this_now
     if whaletransit.volume.to_f > 0
-      @whales << whaletransit
-      info "SIGHTED: #{whaletransit.inspect}"
+      if (found_existing_wall = @fake_walls.detect {|r|
+          r.whale.volume.to_f.abs == whaletransit.volume.to_f.abs &&
+          r.whale.price.to_f == whaletransit.price.to_f &&
+          r.whale.kind == whaletransit.kind })
+        info "SIGHTED EXISTING: #{whaletransit.inspect} #{found_existing_wall.inspect}"
+        found_existing_wall.whale = whaletransit
+        found_existing_wall.seen = Time.now
+        found_existing_wall.status = "on"
+      else
+        info "SIGHTED: #{whaletransit.inspect}"
+        fakewall_sighted(whaletransit, "on")
+      end
       display_whales
       refresh
     elsif whaletransit.volume.to_f < 0
-      #after(60) do
-        rejected = false
-        @whales.reject! do |r| 
-          if( r.volume.to_f.abs == whaletransit.volume.to_f.abs &&
-              r.price.to_f == whaletransit.price.to_f &&
-              r.kind == whaletransit.kind && rejected == false )
-            rejected = true
-            true
-          else
-            false
-          end
+      rejected = false
+      @fake_walls.each do |r| 
+        if( r.whale.volume.to_f.abs == whaletransit.volume.to_f.abs &&
+            r.whale.price.to_f == whaletransit.price.to_f &&
+            r.whale.kind == whaletransit.kind && rejected == false )
+          r.status = "off"
+          rejected = true
         end
-        if rejected == false
-          info("WARN: whale mia but nothing rejected for #{whaletransit.inspect}")
+      end
+      if rejected == false
+        if( r = @fake_walls.detect { |d| d.whale.price.to_f == whaletransit.price.to_f })
+          info("REDUCING VOLUME FOR: #{whaletransit.inspect}, #{r.inspect}")
+          r.whale.volume += whaletransit.volume
+          r.seen = Time.now
+          info("NEW VOLUME: #{r.inspect}")
         else
-          info("GONE: #{whaletransit.inspect}")
-          showit = fakewall_sighted(whaletransit)
-          info("POSSIBLE FAKE WALL (#{showit.count} seen) #{showit.whale.inspect}")
-          display_whales
-          refresh
+          info("WARN: whale volume mia but nothing rejected for #{whaletransit.inspect}")
         end
-      #end
+
+      else
+        info("GONE: #{whaletransit.inspect}")
+        showit = fakewall_sighted(whaletransit, "off")
+        info("POSSIBLE FAKE WALL (#{showit.count} seen) #{showit.whale.inspect}")
+        display_whales
+        refresh
+      end
     end
   end
 
@@ -330,7 +353,7 @@ class MtGoxClient
       if volume < (0 - @whale_is)
         @temp_whales << Whale.new(price, volume, kind, now)
       end
-      after(30) { reflow_whales }
+      after(10) { reflow_whales }
     end
     if jdata["channel_name"] == "trade.BTC"
       currency = jdata["price_currency"]

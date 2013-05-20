@@ -83,7 +83,7 @@
         <li class="active tab-pane" data-toggle="tab" data-target="#git"><a href="#git">Status</a></li>
         <li class="tab-pane" data-toggle="tab" data-target="#logs"><a href="#logs">Alerts</a></li>
         <li class="tab-pane" data-toggle="tab" data-target="#sightings"><a href="#sightings">Activity</a></li>
-        <li class="tab-pane" data-toggle="tab" data-target="#dafuq"><a href="#sightings">What the Frak?</a></li>
+        <li class="tab-pane" data-toggle="tab" data-target="#dafuq"><a href="#sightings">Da FAQ?</a></li>
       </ul>
       <div class="tab-content">
         <div class="tab-pane active" id="git">
@@ -93,18 +93,19 @@
         <div class="tab-pane" id="sightings"></div>
         <div class="tab-pane" id="dafuq">
           <h2>FAQ</h2>
-          <p>Q:  What the frak is this!?</p>
+          <p>Q:  What is this?!</p>
           <p>A:  Btc Whale Watch is a Clustersense project.  Clustersense is all about providing APIs and displaying data in real-time using websocket technology.</p>
-          <p>Q:  Ok, but what the frak is whales.clustersense.com displaying?</p>
+          <p>Q:  What is whales.clustersense.com displaying?</p>
           <p>A:  The status display renders data that we flag as interesting.  Currently displaying:</p>
           <ul>
             <li>Activity:  This is the most important thing to track right now as it's a real time tracking of whale trades (>=49 BTC) as they happen.  Activity is reported as a sum of the volume in the last 15 minutes.  The Activity tab has a break down of the individual whale trades.  Alerts are fired when activity exceeds a threshold (Currently >=375 BTC)</li>
+            <li>Whales buying and Whales selling:  Warning, this is confusing because Mt. Gox makes it confusing to track this.  These are candle-sticks representing our best estimate of the last 15 minutes of the whale order book (listing orders that are currently in-play).</li>
             <li>Fake Walls:  Fake walls are often encountered when trading as a wall of bid or sell that can come and go.  We track these walls and display their volume.  The definition of a fake wall is a bid or ask volume of >=49BTC order being entered and then taken away more than 2x times.  The interpretation of this data is up to you!  Fake walls are currently being displayed if they're fresher than 15000 seconds.</p>
           </ul>
-          <p>Q:  Why do I give a frak about this?</p>
+          <p>Q:  What am I watching for?</p>
           <p>A:  By watching the whales and determining the patterns in their trading we hope to glean valuable real-time trading information.</p>
           <p>Q:  Why does it take so fraking long to load?</p>
-          <p>A:  Because it is event based and you must wait for the next event.  Think of this as the refresh-rate of the site.  Staying connected is easy thanks to a re-connecting websocket cross-browser plugin.  You will receive the events in real-time by simply keeping your browser tab open.  To save on bandwidth the site ONLY sends websocket data when something changes.  On a busy day this is quick.  On a slow day this is slow.</p>
+          <p>A:  Because it is event based and you must wait for the next event.  Think of this as the refresh-rate of the site.  Staying connected is easy thanks to a re-connecting websocket cross-browser plugin.  You will receive the events in real-time by simply keeping your browser tab open.  The site sends websocket data when something changes and every 5 seconds.  On a busy day this is quick.  On a slow day this is slow.</p>
           <p>Q:  Can we get some better data and cooler looking displays?</p>
           <p>A:  Sure!  If you have feedback or ideas come talk them over on IRC @freenode.net #btcwhalewatch</p>
 
