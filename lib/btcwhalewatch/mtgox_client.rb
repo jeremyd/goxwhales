@@ -30,7 +30,7 @@ class MtGoxClient
   def fakewall_sighted(whale, status)
     find_it = nil
     @fake_walls.each_with_index do |d,i|
-      if d.whale.volume == whale.volume && d.whale.price == whale.price && d.whale.kind == whale.kind
+      if d.whale.price == whale.price
         find_it = i
         break
       end
@@ -43,6 +43,7 @@ class MtGoxClient
       @fake_walls[find_it].seen = Time.now
       @fake_walls[find_it].count += 1
       @fake_walls[find_it].status = status
+      @fake_walls[find_it].whale.volume = (@fake_walls[find_it].whale.volume.to_f + whale.volume).round(5)
       return @fake_walls[find_it]
     end
   end
@@ -181,26 +182,28 @@ class MtGoxClient
     @fakes_below = []
     expire_fakes
     @fake_walls.each do |fake|
-      if fake.whale.kind == "ask" && fake.count >= 2 && (fake.whale.price.to_f < (@ticker_sell.to_f + 30)) && ((Time.now - fake.seen) < 15000)
+      if fake.whale.kind == "ask" && fake.count >= 1 && (fake.whale.price.to_f < (@ticker_sell.to_f + 10)) && (fake.status == "on") #&& ((Time.now - fake.seen) < 15000)
         @fakes_above << fake
-      elsif fake.whale.kind == "bid" && fake.count >= 2 && (fake.whale.price.to_f > (@ticker_buy.to_f - 30)) && ((Time.now - fake.seen) < 15000) 
+      elsif fake.whale.kind == "bid" && fake.count >= 1 && (fake.whale.price.to_f > (@ticker_buy.to_f - 10)) && (fake.status == "on") #&& ((Time.now - fake.seen) < 15000) 
         @fakes_below << fake
       end
     end
     @fakes_above.sort! { |a,b| a.whale.price <=> b.whale.price }
+    @fakes_above = @fakes_above.slice(0..40)
     @fakes_below.sort! { |a,b| a.whale.price <=> b.whale.price }
+    @fakes_below = @fakes_below.slice((@fakes_below.size - 40)..@fakes_below.size)
   end
 
   def display_whales
     return false unless @ticker_buy && @ticker_sell
     # The whales are essentially 'walls' that we've detected 1 or more times.
+    calc_fake_walls_above_and_below
     getwhalewalls = @fake_walls.select { |s| s.whale && s.count >= 1 && s.status = "on" }
     @whales = getwhalewalls.collect { |s| s.whale  }
     above = calc_whales_above
     below = calc_whales_below
     ready_above = calc_ready_whales_above
     ready_below = calc_ready_whales_below
-    calc_fake_walls_above_and_below
 
     @nodelist = []
     # display low whales with weight being their y axis (fatty)
@@ -233,10 +236,12 @@ class MtGoxClient
     y = largest_y + 200
     yy = 20
     @fakes_below.each do |fb|
-      xx = fb.whale.volume.abs.to_f.round
+      xx = ((fb.whale.volume.abs.to_f / @whale_is) * 10).round
       last_seen = (Time.now - fb.seen).round
+      warn = ""
+      warn = "caution: Faked wall #{fb.count}x times at this price.  Last fake: #{last_seen}s ago." if fb.count >= 2
       @nodelist << {
-          "id" => " #{fb.whale.price} USD. Volume #{fb.whale.volume}.  Faked wall #{fb.count}x times.  Last fake: #{last_seen}s ago.",
+          "id" => " #{fb.whale.price} USD. Volume #{fb.whale.volume}. #{warn}",
           "state" => "low",
           "x" => x.to_s,
           "y" => y.to_s,
@@ -246,11 +251,22 @@ class MtGoxClient
       y += (yy + 20)
     end
 
+    @nodelist << {
+      "id" => "-- Ticker buy: #{@ticker_buy} #{@ticker_currency},  Ticker sell: #{@ticker_sell} #{@ticker_currency}, Whales >= #{@whale_is} BTC --",
+      "state" => "low",
+      "x" => x.to_s,
+      "y" => y.to_s,
+      "xx" => 0,
+      "yy" => yy.to_s
+    }
+    y += (yy + 20)
+
     @fakes_above.each do |fb|
-      xx = fb.whale.volume.abs.to_f.round
+      xx = ((fb.whale.volume.abs.to_f / @whale_is) * 10).round
       last_seen = (Time.now - fb.seen).round
+      warn = "caution: Faked wall #{fb.count}x times at this price.  Last fake: #{last_seen}s ago." if fb.count >= 2
       @nodelist << {
-          "id" => " #{fb.whale.price} USD. Volume #{fb.whale.volume}.  Faked wall #{fb.count}x times.  Last fake: #{last_seen}s ago.",
+          "id" => " #{fb.whale.price} USD. Volume #{fb.whale.volume}. #{warn}",
           "state" => "high",
           "x" => x.to_s,
           "y" => y.to_s,
@@ -286,7 +302,7 @@ class MtGoxClient
       if (found_existing_wall = @fake_walls.detect {|r|
           r.whale.volume.to_f.abs == whaletransit.volume.to_f.abs &&
           r.whale.price.to_f == whaletransit.price.to_f &&
-          r.whale.kind == whaletransit.kind })
+          r.whale.kind == whaletransit.kind && r.status == "off" })
         info "SIGHTED EXISTING: #{whaletransit.inspect} #{found_existing_wall.inspect}"
         found_existing_wall.whale = whaletransit
         found_existing_wall.seen = Time.now
@@ -309,10 +325,15 @@ class MtGoxClient
       end
       if rejected == false
         if( r = @fake_walls.detect { |d| d.whale.price.to_f == whaletransit.price.to_f })
-          info("REDUCING VOLUME FOR: #{whaletransit.inspect}, #{r.inspect}")
-          r.whale.volume += whaletransit.volume
-          r.seen = Time.now
-          info("NEW VOLUME: #{r.inspect}")
+          info("CHANGING VOLUME FOR: #{whaletransit.inspect}, #{r.inspect}")
+          r.whale.volume = (r.whale.volume - whaletransit.volume).round(5).to_f
+          if r.whale.volume <= @whale_is
+            @fake_walls.reject! { |wall| wall == r }
+            info("WALL VOLUME GONE PAST ZERO, REJECTING: #{r.inspect} #{r.whale.inspect}")
+          else
+            r.seen = Time.now
+            info("NEW VOLUME: #{r.inspect}")
+          end
         else
           info("WARN: whale volume mia but nothing rejected for #{whaletransit.inspect}")
         end
@@ -353,7 +374,7 @@ class MtGoxClient
       if volume < (0 - @whale_is)
         @temp_whales << Whale.new(price, volume, kind, now)
       end
-      after(10) { reflow_whales }
+      after(5) { reflow_whales }
     end
     if jdata["channel_name"] == "trade.BTC"
       currency = jdata["price_currency"]

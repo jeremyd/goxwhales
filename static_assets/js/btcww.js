@@ -105,7 +105,11 @@ function animate() {
     else {
       ctx.fillStyle = "rgb(200,0,0)";
     }
-    ctx.clearRect(x,y,xx,yy);
+    if(i != 0 && i != 1) {
+      ctx.clearRect(x,y,canvas.width,yy);
+    } else {
+      ctx.clearRect(x,y,xx,yy);
+    }
     ctx.fillRect(x, y, xx, yy); 
 
     if(i == 0 || i == 1) {
