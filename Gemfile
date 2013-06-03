@@ -2,6 +2,9 @@ source "https://rubygems.org"
 
 gem 'celluloid',     :github => 'celluloid/celluloid'
 gem 'celluloid-io',  :github => 'celluloid/celluloid-io'
+gem 'cinch'
+gem 'cinch-identify'
+
 gem 'pry'
 
 #gem 'websocket-protocol', :github => 'faye/websocket-protocol-ruby', :branch => 'extra_headers'

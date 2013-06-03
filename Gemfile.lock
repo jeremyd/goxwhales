@@ -45,6 +45,8 @@ PATH
   specs:
     btcwhalewatch (0.0.1)
       celluloid-io
+      cinch
+      cinch-identify
       reel
       websocket-protocol
 
@@ -52,6 +54,9 @@ GEM
   remote: https://rubygems.org/
   specs:
     certified (0.1.1)
+    cinch (2.0.4)
+    cinch-identify (1.4.1)
+      cinch (~> 2.0)
     coderay (1.0.9)
     diff-lcs (1.2.4)
     http (0.4.0)
@@ -86,6 +91,8 @@ DEPENDENCIES
   celluloid!
   celluloid-io!
   celluloid-websocket-client!
+  cinch
+  cinch-identify
   pry
   reel!
   rspec
